@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Mic, 
   MicOff, 
@@ -10,7 +10,10 @@ import {
   ArrowDown,
   ArrowUp,
   Camera,
-  AlertCircle
+  AlertCircle,
+  Minimize2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
@@ -29,21 +32,26 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
   const { permissions, requestVideoCallPermissions } = useMediaPermissions();
   const [callState, setCallState] = useState<CallState>('requesting-permission');
   const [showUI, setShowUI] = useState(true);
+  const [uiManuallyHidden, setUiManuallyHidden] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [duration, setDuration] = useState(0);
   const [pipPosition, setPipPosition] = useState({ x: 16, y: 116 });
   const [pipSize, setPipSize] = useState(0); // 0 = normal, 1 = enlarged
   const [isSwapped, setIsSwapped] = useState(false); // false = other person fullscreen, true = self fullscreen
+  const [swapAnimation, setSwapAnimation] = useState<'none' | 'bouncing'>('none');
+  const [isInPipMode, setIsInPipMode] = useState(false);
   const hideTimeout = useRef<NodeJS.Timeout>();
   const pipRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isDragging = useRef(false);
   const hasMoved = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
   const lastTapTime = useRef(0);
   const doubleTapTimer = useRef<NodeJS.Timeout>();
+  const lastScreenTapTime = useRef(0);
 
   // Request camera and microphone permission on mount
   useEffect(() => {
@@ -68,22 +76,52 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
   }, [callState]);
 
   useEffect(() => {
-    resetHideTimer();
+    if (!uiManuallyHidden) {
+      resetHideTimer();
+    }
     return () => {
       if (hideTimeout.current) clearTimeout(hideTimeout.current);
     };
-  }, []);
+  }, [uiManuallyHidden]);
 
   const resetHideTimer = () => {
+    if (uiManuallyHidden) return; // Don't auto-show if manually hidden
     if (hideTimeout.current) clearTimeout(hideTimeout.current);
     setShowUI(true);
     hideTimeout.current = setTimeout(() => setShowUI(false), 3000);
   };
 
   const handleScreenClick = () => {
-    if (!isDragging.current) {
-      resetHideTimer();
+    if (isDragging.current) return;
+    
+    const now = Date.now();
+    const timeSinceLastTap = now - lastScreenTapTime.current;
+    
+    if (timeSinceLastTap < 300) {
+      // Double tap on screen - toggle manual hide
+      setUiManuallyHidden(!uiManuallyHidden);
+      if (uiManuallyHidden) {
+        // Was hidden, now showing
+        setShowUI(true);
+        resetHideTimer();
+      } else {
+        // Was showing, now hiding
+        if (hideTimeout.current) clearTimeout(hideTimeout.current);
+        setShowUI(false);
+      }
+    } else {
+      // Single tap - show UI temporarily if not manually hidden
+      if (!uiManuallyHidden) {
+        resetHideTimer();
+      } else {
+        // If manually hidden, single tap shows it temporarily
+        setShowUI(true);
+        if (hideTimeout.current) clearTimeout(hideTimeout.current);
+        hideTimeout.current = setTimeout(() => setShowUI(false), 3000);
+      }
     }
+    
+    lastScreenTapTime.current = now;
   };
 
   const formatDuration = (seconds: number) => {
@@ -188,26 +226,78 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
       }
       
       if (pipSize === 0) {
-        // First double tap: enlarge
+        // First double tap: enlarge with bounce
+        setSwapAnimation('bouncing');
         setPipSize(1);
+        setTimeout(() => setSwapAnimation('none'), 300);
         
         // Set timer for swap window (2 seconds)
         doubleTapTimer.current = setTimeout(() => {
           // Reset size back to normal after 2 seconds if not tapped again
+          setSwapAnimation('bouncing');
           setPipSize(0);
+          setTimeout(() => setSwapAnimation('none'), 300);
         }, 2000);
       } else if (pipSize === 1) {
-        // Second double tap within 2 seconds: swap screens
+        // Second double tap within 2 seconds: swap screens with bounce
         if (doubleTapTimer.current) {
           clearTimeout(doubleTapTimer.current);
         }
+        setSwapAnimation('bouncing');
         setIsSwapped(!isSwapped);
         setPipSize(0);
+        setTimeout(() => setSwapAnimation('none'), 400);
       }
     }
     
     lastTapTime.current = now;
   };
+
+  // Enter Picture-in-Picture mode
+  const enterPipMode = useCallback(async () => {
+    if (!document.pictureInPictureEnabled) {
+      console.log('PiP not supported');
+      return;
+    }
+    
+    // Create a canvas-based video for PiP
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    
+    if (ctx) {
+      // Draw a simple placeholder for the video
+      ctx.fillStyle = '#1a1a2e';
+      ctx.fillRect(0, 0, 320, 240);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 48px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isSwapped ? 'You' : callerName.charAt(0).toUpperCase(), 160, 100);
+      ctx.font = '16px sans-serif';
+      ctx.fillText(formatDuration(duration), 160, 180);
+    }
+    
+    // Create video element from canvas
+    const stream = canvas.captureStream(30);
+    const video = document.createElement('video');
+    video.srcObject = stream;
+    video.muted = true;
+    await video.play();
+    
+    try {
+      await video.requestPictureInPicture();
+      setIsInPipMode(true);
+      
+      video.addEventListener('leavepictureinpicture', () => {
+        setIsInPipMode(false);
+        stream.getTracks().forEach(track => track.stop());
+      });
+    } catch (error) {
+      console.error('Failed to enter PiP:', error);
+    }
+  }, [isSwapped, callerName, duration]);
 
   useEffect(() => {
     window.addEventListener('mousemove', handleMouseMove);
@@ -268,7 +358,10 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
       onMouseMove={resetHideTimer}
     >
       {/* Full Screen Video */}
-      <div className="absolute inset-0 bg-secondary flex items-center justify-center">
+      <div className={cn(
+        "absolute inset-0 bg-secondary flex items-center justify-center",
+        swapAnimation === 'bouncing' && 'animate-bounce-in'
+      )}>
         <div className="text-center">
           <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
             <span className="text-5xl font-bold">
@@ -334,7 +427,7 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
         className={cn(
           'absolute bg-card rounded-xl overflow-hidden border-2 shadow-lg cursor-move select-none',
           pipSize === 1 ? 'border-primary animate-pulse' : 'border-primary/50 hover:border-primary',
-          'transition-[width,height] duration-200'
+          swapAnimation === 'bouncing' && 'animate-bounce-in'
         )}
         style={{
           left: pipPosition.x,
@@ -342,6 +435,7 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
           width: pipSizes[pipSize].width,
           height: pipSizes[pipSize].height,
           touchAction: 'none',
+          transition: 'width 0.2s ease-out, height 0.2s ease-out',
         }}
         onMouseDown={handlePipMouseDown}
         onTouchStart={handlePipMouseDown}
@@ -371,6 +465,17 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
           showUI ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'
         )}
       >
+        {/* PiP Mode Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => { e.stopPropagation(); enterPipMode(); }}
+          className="w-14 h-14 rounded-full bg-card border border-border hover:bg-secondary"
+          title="Picture-in-Picture"
+        >
+          <Minimize2 className="w-6 h-6" />
+        </Button>
+
         <Button
           variant="ghost"
           size="icon"
@@ -395,15 +500,6 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
         <Button
           variant="ghost"
           size="icon"
-          onClick={(e) => { e.stopPropagation(); }}
-          className="w-14 h-14 rounded-full bg-card border border-border hover:bg-secondary"
-        >
-          <SwitchCamera className="w-6 h-6" />
-        </Button>
-
-        <Button
-          variant="ghost"
-          size="icon"
           onClick={(e) => { e.stopPropagation(); setIsVideoOn(!isVideoOn); }}
           className={cn(
             'w-14 h-14 rounded-full transition-all',
@@ -412,7 +508,26 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
         >
           {isVideoOn ? <Video className="w-6 h-6" /> : <VideoOff className="w-6 h-6" />}
         </Button>
+
+        {/* Toggle UI Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={(e) => { 
+            e.stopPropagation(); 
+            setUiManuallyHidden(!uiManuallyHidden);
+            if (!uiManuallyHidden) {
+              if (hideTimeout.current) clearTimeout(hideTimeout.current);
+              setShowUI(false);
+            }
+          }}
+          className="w-14 h-14 rounded-full bg-card border border-border hover:bg-secondary"
+          title={uiManuallyHidden ? "Auto-show UI" : "Keep UI hidden"}
+        >
+          {uiManuallyHidden ? <Eye className="w-6 h-6" /> : <EyeOff className="w-6 h-6" />}
+        </Button>
       </div>
+
     </div>
   );
 };
