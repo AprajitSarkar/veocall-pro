@@ -32,12 +32,18 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
   const [duration, setDuration] = useState(0);
-  const [pipPosition, setPipPosition] = useState({ x: 16, y: 16 });
-  const [pipSize, setPipSize] = useState(1); // 0 = small, 1 = medium, 2 = large
+  const [pipPosition, setPipPosition] = useState({ x: 16, y: 116 });
+  const [pipSize, setPipSize] = useState(0); // 0 = normal, 1 = enlarged
+  const [isSwapped, setIsSwapped] = useState(false); // false = other person fullscreen, true = self fullscreen
   const hideTimeout = useRef<NodeJS.Timeout>();
   const pipRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
+  const hasMoved = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
+  const dragOffset = useRef({ x: 0, y: 0 });
+  const lastTapTime = useRef(0);
+  const doubleTapTimer = useRef<NodeJS.Timeout>();
 
   // Request camera and microphone permission on mount
   useEffect(() => {
@@ -109,39 +115,98 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
   const pipSizes = [
     { width: 100, height: 140 },
     { width: 140, height: 200 },
-    { width: 180, height: 260 },
   ];
 
   const handlePipMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     isDragging.current = true;
+    hasMoved.current = false;
+    
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    dragStart.current = { 
-      x: clientX - pipPosition.x, 
-      y: clientY - pipPosition.y 
-    };
+    
+    // Store the initial mouse position
+    dragStart.current = { x: clientX, y: clientY };
+    // Store the offset from PiP position
+    dragOffset.current = { x: pipPosition.x, y: pipPosition.y };
   };
 
   const handleMouseMove = (e: MouseEvent | TouchEvent) => {
     if (!isDragging.current) return;
+    e.preventDefault();
+    
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    setPipPosition({
-      x: clientX - dragStart.current.x,
-      y: clientY - dragStart.current.y,
-    });
+    
+    // Calculate movement delta
+    const deltaX = clientX - dragStart.current.x;
+    const deltaY = clientY - dragStart.current.y;
+    
+    // Mark as moved if significant movement
+    if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+      hasMoved.current = true;
+    }
+    
+    // Get container bounds
+    const containerWidth = window.innerWidth;
+    const containerHeight = window.innerHeight;
+    const currentSize = pipSizes[pipSize];
+    
+    // Calculate new position (using left/top coordinates)
+    let newX = dragOffset.current.x + deltaX;
+    let newY = dragOffset.current.y + deltaY;
+    
+    // Constrain within bounds with 8px padding
+    const padding = 8;
+    newX = Math.max(padding, Math.min(containerWidth - currentSize.width - padding, newX));
+    newY = Math.max(padding, Math.min(containerHeight - currentSize.height - padding - 100, newY)); // 100 for controls
+    
+    setPipPosition({ x: newX, y: newY });
   };
 
   const handleMouseUp = () => {
-    setTimeout(() => {
-      isDragging.current = false;
-    }, 100);
+    isDragging.current = false;
   };
 
-  const handlePipDoubleClick = (e: React.MouseEvent) => {
+  const handlePipTap = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
-    setPipSize((s) => (s + 1) % 3);
+    
+    // Don't trigger tap if we were dragging
+    if (hasMoved.current) {
+      hasMoved.current = false;
+      return;
+    }
+    
+    const now = Date.now();
+    const timeSinceLastTap = now - lastTapTime.current;
+    
+    if (timeSinceLastTap < 300) {
+      // Double tap detected
+      if (doubleTapTimer.current) {
+        clearTimeout(doubleTapTimer.current);
+      }
+      
+      if (pipSize === 0) {
+        // First double tap: enlarge
+        setPipSize(1);
+        
+        // Set timer for swap window (2 seconds)
+        doubleTapTimer.current = setTimeout(() => {
+          // Reset size back to normal after 2 seconds if not tapped again
+          setPipSize(0);
+        }, 2000);
+      } else if (pipSize === 1) {
+        // Second double tap within 2 seconds: swap screens
+        if (doubleTapTimer.current) {
+          clearTimeout(doubleTapTimer.current);
+        }
+        setIsSwapped(!isSwapped);
+        setPipSize(0);
+      }
+    }
+    
+    lastTapTime.current = now;
   };
 
   useEffect(() => {
@@ -197,17 +262,22 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
 
   return (
     <div 
+      ref={containerRef}
       className="fixed inset-0 bg-background z-50"
       onClick={handleScreenClick}
       onMouseMove={resetHideTimer}
     >
-      {/* Remote Video (Full Screen) */}
+      {/* Full Screen Video */}
       <div className="absolute inset-0 bg-secondary flex items-center justify-center">
         <div className="text-center">
           <div className="w-32 h-32 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <span className="text-5xl font-bold">{callerName.charAt(0).toUpperCase()}</span>
+            <span className="text-5xl font-bold">
+              {isSwapped ? 'You' : callerName.charAt(0).toUpperCase()}
+            </span>
           </div>
-          <p className="text-lg text-muted-foreground">Connecting video...</p>
+          <p className="text-lg text-muted-foreground">
+            {isSwapped ? 'Your camera' : 'Connecting video...'}
+          </p>
         </div>
       </div>
 
@@ -258,28 +328,38 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
         </div>
       </div>
 
-      {/* Local Video (PIP) */}
+      {/* PIP Video */}
       <div
         ref={pipRef}
         className={cn(
-          'absolute bg-card rounded-xl overflow-hidden border-2 border-primary/50 shadow-lg cursor-move transition-all duration-300',
-          'hover:border-primary'
+          'absolute bg-card rounded-xl overflow-hidden border-2 shadow-lg cursor-move select-none',
+          pipSize === 1 ? 'border-primary animate-pulse' : 'border-primary/50 hover:border-primary',
+          'transition-[width,height] duration-200'
         )}
         style={{
-          right: pipPosition.x,
-          bottom: pipPosition.y + 100,
+          left: pipPosition.x,
+          top: pipPosition.y,
           width: pipSizes[pipSize].width,
           height: pipSizes[pipSize].height,
+          touchAction: 'none',
         }}
         onMouseDown={handlePipMouseDown}
         onTouchStart={handlePipMouseDown}
-        onDoubleClick={handlePipDoubleClick}
+        onClick={handlePipTap}
+        onTouchEnd={handlePipTap}
       >
-        <div className="w-full h-full bg-secondary flex items-center justify-center">
+        <div className="w-full h-full bg-secondary flex items-center justify-center relative">
           {isVideoOn ? (
-            <span className="text-2xl font-bold">You</span>
+            <span className="text-2xl font-bold">
+              {isSwapped ? callerName.charAt(0).toUpperCase() : 'You'}
+            </span>
           ) : (
             <VideoOff className="w-8 h-8 text-muted-foreground" />
+          )}
+          {pipSize === 1 && (
+            <div className="absolute bottom-1 left-0 right-0 text-center text-xs text-primary font-medium">
+              Tap again to swap
+            </div>
           )}
         </div>
       </div>
