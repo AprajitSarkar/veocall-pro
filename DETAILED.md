@@ -165,9 +165,13 @@
 
 | Element | Description | Status |
 |---------|-------------|--------|
-| **Remote Video** | Full-screen background | 🔧 |
-| **Local Video (PIP)** | Draggable corner window | ✅ |
-| **PIP Resize** | Double-tap to cycle sizes | ✅ |
+| **Full Screen Video** | Shows other person (or self when swapped) | 🔧 |
+| **PIP Video** | Draggable floating window | ✅ |
+| **PIP Drag** | Drag anywhere within screen bounds | ✅ |
+| **PIP Double-Tap Enlarge** | Double-tap to slightly enlarge | ✅ |
+| **PIP Screen Swap** | Double-tap enlarged PIP within 2s to swap | ✅ |
+| **PIP Swap Indicator** | "Tap again to swap" text when enlarged | ✅ |
+| **PIP Auto-Reset** | Resets to normal size after 2s if not swapped | ✅ |
 
 ### Control Bar (Auto-hide after 3s)
 
