@@ -11,7 +11,8 @@ import {
   Mail,
   Save,
   Trash2,
-  Check
+  Check,
+  Palette
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +66,18 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
     setTimeout(() => setShowSaved(false), 2000);
   };
 
+  const updateUISettings = (key: string, value: string) => {
+    if (user?.uiSettings) {
+      updateUser({
+        uiSettings: {
+          ...user.uiSettings,
+          [key]: value,
+        },
+      });
+      showSavedMessage();
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col pb-24">
       {/* Header */}
@@ -74,7 +87,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
             variant="ghost"
             size="icon"
             onClick={onBack}
-            className="w-10 h-10 rounded-xl hover:bg-secondary"
+            className="w-10 h-10 rounded-xl hover:bg-secondary active:scale-95"
           >
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -98,9 +111,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                 <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="flex-1 bg-secondary border-border"
+                  className="flex-1 bg-secondary border-border rounded-xl"
                 />
-                <Button onClick={handleSaveUsername} className="gradient-primary">
+                <Button onClick={handleSaveUsername} className="rounded-xl">
                   <Save className="w-4 h-4" />
                 </Button>
               </div>
@@ -113,9 +126,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@gmail.com"
-                  className="flex-1 bg-secondary border-border"
+                  className="flex-1 bg-secondary border-border rounded-xl"
                 />
-                <Button onClick={handleSaveEmail} className="gradient-primary">
+                <Button onClick={handleSaveEmail} className="rounded-xl">
                   <Mail className="w-4 h-4" />
                 </Button>
               </div>
@@ -127,7 +140,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
         <SettingsSection title="Security" icon={Lock}>
           <div className="space-y-4">
             {user?.hasPassword ? (
-              <div className="flex items-center justify-between p-4 bg-secondary rounded-lg">
+              <div className="flex items-center justify-between p-4 bg-secondary rounded-xl">
                 <div>
                   <p className="font-medium">Password Protected</p>
                   <p className="text-sm text-muted-foreground">Your account is secured</p>
@@ -136,7 +149,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                   variant="destructive" 
                   size="sm"
                   onClick={handleRemovePassword}
-                  className="gap-2"
+                  className="gap-2 rounded-xl"
                 >
                   <Trash2 className="w-4 h-4" />
                   Remove
@@ -151,14 +164,64 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Min 4 characters"
-                    className="flex-1 bg-secondary border-border"
+                    className="flex-1 bg-secondary border-border rounded-xl"
                   />
-                  <Button onClick={handleSetPassword} className="gradient-primary">
+                  <Button onClick={handleSetPassword} className="rounded-xl">
                     <Lock className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             )}
+          </div>
+        </SettingsSection>
+
+        {/* UI Customization */}
+        <SettingsSection title="UI Customization" icon={Palette}>
+          <div className="space-y-4">
+            <SettingsSelect
+              label="Button Style"
+              value={user?.uiSettings?.buttonStyle || 'filled'}
+              onChange={(v) => updateUISettings('buttonStyle', v)}
+              options={[
+                { value: 'filled', label: 'Filled' },
+                { value: 'tonal', label: 'Tonal' },
+                { value: 'outlined', label: 'Outlined' },
+                { value: 'elevated', label: 'Elevated' },
+              ]}
+            />
+            <SettingsSelect
+              label="Button Corners"
+              value={user?.uiSettings?.buttonRadius || 'rounded'}
+              onChange={(v) => updateUISettings('buttonRadius', v)}
+              options={[
+                { value: 'square', label: 'Square' },
+                { value: 'rounded', label: 'Rounded' },
+                { value: 'pill', label: 'Pill' },
+              ]}
+            />
+            <SettingsSelect
+              label="Accent Color"
+              value={user?.uiSettings?.accentColor || 'cyan'}
+              onChange={(v) => updateUISettings('accentColor', v)}
+              options={[
+                { value: 'cyan', label: 'Cyan' },
+                { value: 'blue', label: 'Blue' },
+                { value: 'purple', label: 'Purple' },
+                { value: 'green', label: 'Green' },
+                { value: 'orange', label: 'Orange' },
+              ]}
+            />
+            
+            {/* Button Preview */}
+            <div className="p-4 bg-secondary/50 rounded-xl space-y-3">
+              <Label className="text-xs text-muted-foreground">Preview</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" className="rounded-xl">Filled</Button>
+                <Button size="sm" variant="tonal" className="rounded-xl">Tonal</Button>
+                <Button size="sm" variant="outline" className="rounded-xl">Outlined</Button>
+                <Button size="sm" variant="elevated" className="rounded-xl">Elevated</Button>
+              </div>
+            </div>
           </div>
         </SettingsSection>
 
@@ -251,10 +314,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
 
         {/* Allowed Users */}
         <SettingsSection title="Allowed Users" icon={Users}>
-          <div className="p-4 bg-secondary rounded-lg text-center text-muted-foreground">
+          <div className="p-4 bg-secondary rounded-xl text-center text-muted-foreground">
             <Users className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No users selected</p>
-            <Button variant="outline" size="sm" className="mt-3">
+            <Button variant="outline" size="sm" className="mt-3 rounded-xl">
               Add Users
             </Button>
           </div>
@@ -296,7 +359,7 @@ const SettingsSelect: React.FC<SettingsSelectProps> = ({ label, value, onChange,
   <div className="flex items-center justify-between">
     <Label>{label}</Label>
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-36 bg-secondary border-border">
+      <SelectTrigger className="w-36 bg-secondary border-border rounded-xl">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

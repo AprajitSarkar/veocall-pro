@@ -1,5 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
+interface UISettings {
+  buttonStyle: 'filled' | 'tonal' | 'outlined' | 'elevated';
+  buttonRadius: 'square' | 'rounded' | 'pill';
+  accentColor: 'cyan' | 'blue' | 'purple' | 'green' | 'orange';
+}
+
 interface User {
   username: string;
   email?: string;
@@ -12,6 +18,7 @@ interface User {
   audioPrivacy: 'everyone' | 'recent' | 'selected';
   videoPrivacy: 'everyone' | 'recent' | 'selected';
   allowedUsers: string[];
+  uiSettings: UISettings;
 }
 
 interface OnlineUser {
@@ -85,6 +92,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       audioPrivacy: 'everyone',
       videoPrivacy: 'everyone',
       allowedUsers: [],
+      uiSettings: {
+        buttonStyle: 'filled',
+        buttonRadius: 'rounded',
+        accentColor: 'cyan',
+      },
     };
     setUser(newUser);
     localStorage.setItem('veocall_user', JSON.stringify(newUser));
