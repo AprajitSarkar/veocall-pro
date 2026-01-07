@@ -115,6 +115,7 @@ const AppContent: React.FC = () => {
   }
 };
 
+// Main entry component with AppProvider wrapper
 const Index: React.FC = () => {
   return (
     <AppProvider>
