@@ -25,7 +25,8 @@
 | Username validation | Checks minimum 3 characters | ✅ |
 | Password requirement check | Checks if username needs password | 🔧 |
 | Auto-login persistence | Remembers logged in user | ✅ |
-| Camera/Mic permissions | Request on login | ❌ |
+| Camera permission request | Request on video call start | ✅ |
+| Microphone permission request | Request on audio/video call start | ✅ |
 
 ---
 
@@ -141,6 +142,14 @@
 
 ## 📹 4. Video Call Screen
 
+### Permission States
+
+| State | Description | Status |
+|-------|-------------|--------|
+| **Requesting Permission** | Shows camera icon with spinner | ✅ |
+| **Permission Denied** | Shows error with close button | ✅ |
+| **Permission Granted** | Proceeds to active call | ✅ |
+
 ### Network Overlays (Auto-hide after 3s)
 
 | Element | Position | Status |
@@ -172,6 +181,14 @@
 ---
 
 ## 🎧 5. Audio Call Screen
+
+### Permission States
+
+| State | Description | Status |
+|-------|-------------|--------|
+| **Requesting Permission** | Shows mic icon with spinner | ✅ |
+| **Permission Denied** | Shows error with close button | ✅ |
+| **Permission Granted** | Proceeds to call states | ✅ |
 
 ### Call States
 
