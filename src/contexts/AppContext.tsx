@@ -6,6 +6,16 @@ interface UISettings {
   accentColor: 'cyan' | 'blue' | 'purple' | 'green' | 'orange';
 }
 
+export interface CallHistoryItem {
+  id: string;
+  username: string;
+  type: 'audio' | 'video';
+  direction: 'incoming' | 'outgoing';
+  status: 'received' | 'missed' | 'declined';
+  duration: number; // in seconds
+  timestamp: Date;
+}
+
 interface User {
   username: string;
   email?: string;
@@ -33,11 +43,13 @@ interface AppContextType {
   networkStatus: 'online' | 'offline' | 'server-down';
   ping: number;
   onlineUsers: OnlineUser[];
+  callHistory: CallHistoryItem[];
   login: (username: string, password?: string) => void;
   logout: () => void;
   updateUser: (updates: Partial<User>) => void;
   setPassword: (password: string) => void;
   removePassword: () => void;
+  addCallToHistory: (call: Omit<CallHistoryItem, 'id' | 'timestamp'>) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -46,6 +58,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [user, setUser] = useState<User | null>(null);
   const [networkStatus, setNetworkStatus] = useState<'online' | 'offline' | 'server-down'>('online');
   const [ping, setPing] = useState(45);
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
   const [onlineUsers] = useState<OnlineUser[]>([
     { username: 'Alex', isOnline: true },
     { username: 'Jordan', isOnline: true },
@@ -58,6 +71,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const savedUser = localStorage.getItem('veocall_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
+    }
+    const savedHistory = localStorage.getItem('veocall_history');
+    if (savedHistory) {
+      const parsed = JSON.parse(savedHistory);
+      setCallHistory(parsed.map((item: CallHistoryItem) => ({
+        ...item,
+        timestamp: new Date(item.timestamp)
+      })));
+    } else {
+      // Demo call history
+      setCallHistory([
+        { id: '1', username: 'Alex', type: 'video', direction: 'outgoing', status: 'received', duration: 150, timestamp: new Date(Date.now() - 3600000) },
+        { id: '2', username: 'Jordan', type: 'audio', direction: 'incoming', status: 'missed', duration: 0, timestamp: new Date(Date.now() - 7200000) },
+        { id: '3', username: 'Sam', type: 'video', direction: 'incoming', status: 'received', duration: 300, timestamp: new Date(Date.now() - 86400000) },
+        { id: '4', username: 'Taylor', type: 'audio', direction: 'outgoing', status: 'received', duration: 45, timestamp: new Date(Date.now() - 172800000) },
+      ]);
     }
   }, []);
 
@@ -129,6 +158,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const addCallToHistory = (call: Omit<CallHistoryItem, 'id' | 'timestamp'>) => {
+    const newCall: CallHistoryItem = {
+      ...call,
+      id: Date.now().toString(),
+      timestamp: new Date(),
+    };
+    const updatedHistory = [newCall, ...callHistory];
+    setCallHistory(updatedHistory);
+    localStorage.setItem('veocall_history', JSON.stringify(updatedHistory));
+  };
+
   return (
     <AppContext.Provider value={{
       user,
@@ -136,11 +176,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       networkStatus,
       ping,
       onlineUsers,
+      callHistory,
       login,
       logout,
       updateUser,
       setPassword,
       removePassword,
+      addCallToHistory,
     }}>
       {children}
     </AppContext.Provider>

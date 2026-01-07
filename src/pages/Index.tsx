@@ -15,10 +15,11 @@ interface CallState {
 }
 
 const AppContent: React.FC = () => {
-  const { isLoggedIn } = useApp();
+  const { isLoggedIn, addCallToHistory } = useApp();
   const [screen, setScreen] = useState<Screen>(isLoggedIn ? 'home' : 'login');
   const [callState, setCallState] = useState<CallState | null>(null);
   const [incomingCall, setIncomingCall] = useState<CallState | null>(null);
+  const [callStartTime, setCallStartTime] = useState<number>(0);
 
   // Simulate incoming call after 10 seconds on home screen
   React.useEffect(() => {
@@ -36,23 +37,45 @@ const AppContent: React.FC = () => {
 
   const handleCall = (type: 'audio' | 'video', username: string) => {
     setCallState({ type, username });
+    setCallStartTime(Date.now());
     setScreen(type === 'video' ? 'video-call' : 'audio-call');
   };
 
   const handleEndCall = () => {
+    if (callState) {
+      const duration = Math.floor((Date.now() - callStartTime) / 1000);
+      addCallToHistory({
+        username: callState.username,
+        type: callState.type,
+        direction: 'outgoing',
+        status: duration > 0 ? 'received' : 'missed',
+        duration,
+      });
+    }
     setCallState(null);
+    setCallStartTime(0);
     setScreen('home');
   };
 
   const handleAcceptIncoming = () => {
     if (incomingCall) {
       setCallState(incomingCall);
+      setCallStartTime(Date.now());
       setIncomingCall(null);
       setScreen(incomingCall.type === 'video' ? 'video-call' : 'audio-call');
     }
   };
 
   const handleRejectIncoming = () => {
+    if (incomingCall) {
+      addCallToHistory({
+        username: incomingCall.username,
+        type: incomingCall.type,
+        direction: 'incoming',
+        status: 'declined',
+        duration: 0,
+      });
+    }
     setIncomingCall(null);
   };
 
