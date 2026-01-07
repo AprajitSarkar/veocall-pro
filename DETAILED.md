@@ -168,19 +168,38 @@
 | **Full Screen Video** | Shows other person (or self when swapped) | 🔧 |
 | **PIP Video** | Draggable floating window | ✅ |
 | **PIP Drag** | Drag anywhere within screen bounds | ✅ |
-| **PIP Double-Tap Enlarge** | Double-tap to slightly enlarge | ✅ |
+| **PIP Double-Tap Enlarge** | Double-tap to slightly enlarge with bounce | ✅ |
 | **PIP Screen Swap** | Double-tap enlarged PIP within 2s to swap | ✅ |
+| **PIP Swap Bounce Animation** | Bouncy effect on swap transition | ✅ |
 | **PIP Swap Indicator** | "Tap again to swap" text when enlarged | ✅ |
 | **PIP Auto-Reset** | Resets to normal size after 2s if not swapped | ✅ |
+
+### UI Visibility
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **Auto-hide UI** | UI hides after 3 seconds of inactivity | ✅ |
+| **Tap to Show** | Single tap shows UI temporarily | ✅ |
+| **Double-tap Toggle** | Double-tap screen to manually show/hide UI | ✅ |
+| **Manual Hide Button** | Eye icon button to toggle auto-hide | ✅ |
+
+### Picture-in-Picture Mode
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| **PiP Button** | Minimize icon to enter browser PiP | ✅ |
+| **PiP Display** | Shows fullscreen camera in system PiP | ✅ |
+| **PiP Exit** | Automatically detects when user exits PiP | ✅ |
 
 ### Control Bar (Auto-hide after 3s)
 
 | Button | Icon | Action | Status |
 |--------|------|--------|--------|
+| **PiP Mode** | ⬜ | Enter picture-in-picture | ✅ |
 | **Mute** | 🎤 / 🔇 | Toggle microphone | 🔧 |
 | **End Call** | 📞 | End and return to home | 🔧 |
-| **Switch Camera** | 🔄 | Toggle front/back camera | ❌ |
 | **Video Toggle** | 📹 / ❌ | Turn camera on/off | 🔧 |
+| **Hide UI** | 👁️ | Toggle manual UI hide | ✅ |
 
 ---
 
