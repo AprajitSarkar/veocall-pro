@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Mic, MicOff, Phone } from 'lucide-react';
+import { Mic, MicOff, Phone, MicIcon, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useMediaPermissions, PermissionStatus } from '@/hooks/useMediaPermissions';
 
-type CallStatus = 'ringing' | 'connecting' | 'connected';
+type CallStatus = 'requesting-permission' | 'ringing' | 'connecting' | 'connected' | 'permission-denied';
 
 interface AudioCallScreenProps {
   callerName: string;
@@ -12,10 +13,24 @@ interface AudioCallScreenProps {
 }
 
 const AudioCallScreen: React.FC<AudioCallScreenProps> = ({ callerName, onEnd, isOutgoing = true }) => {
+  const { permissions, requestAudioCallPermissions } = useMediaPermissions();
   const [isMuted, setIsMuted] = useState(false);
   const [duration, setDuration] = useState(0);
-  const [callStatus, setCallStatus] = useState<CallStatus>(isOutgoing ? 'ringing' : 'connecting');
+  const [callStatus, setCallStatus] = useState<CallStatus>('requesting-permission');
   const [statusPosition, setStatusPosition] = useState<'center' | 'top'>('center');
+
+  // Request microphone permission on mount
+  useEffect(() => {
+    const requestPermission = async () => {
+      const granted = await requestAudioCallPermissions();
+      if (granted) {
+        setCallStatus(isOutgoing ? 'ringing' : 'connecting');
+      } else {
+        setCallStatus('permission-denied');
+      }
+    };
+    requestPermission();
+  }, [requestAudioCallPermissions, isOutgoing]);
 
   // Simulate call connection flow
   useEffect(() => {
@@ -55,6 +70,10 @@ const AudioCallScreen: React.FC<AudioCallScreenProps> = ({ callerName, onEnd, is
 
   const getStatusText = () => {
     switch (callStatus) {
+      case 'requesting-permission':
+        return 'Requesting microphone access...';
+      case 'permission-denied':
+        return 'Microphone access denied';
       case 'ringing':
         return 'Ringing...';
       case 'connecting':
@@ -63,6 +82,44 @@ const AudioCallScreen: React.FC<AudioCallScreenProps> = ({ callerName, onEnd, is
         return formatDuration(duration);
     }
   };
+
+  // Permission denied screen
+  if (callStatus === 'permission-denied') {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center overflow-hidden">
+        <div className="flex flex-col items-center text-center p-8">
+          <div className="w-24 h-24 rounded-full bg-destructive/20 flex items-center justify-center mb-6">
+            <AlertCircle className="w-12 h-12 text-destructive" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Microphone Access Required</h2>
+          <p className="text-muted-foreground mb-6 max-w-xs">
+            To make audio calls, please allow microphone access in your browser settings.
+          </p>
+          <Button variant="destructive" onClick={onEnd} className="px-8">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Permission requesting screen
+  if (callStatus === 'requesting-permission') {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center overflow-hidden">
+        <div className="flex flex-col items-center text-center p-8 animate-fade-in">
+          <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mb-6 animate-pulse">
+            <MicIcon className="w-12 h-12 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Microphone Access</h2>
+          <p className="text-muted-foreground mb-4">
+            Please allow microphone access to start the call
+          </p>
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center overflow-hidden">

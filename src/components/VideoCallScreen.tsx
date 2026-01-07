@@ -8,11 +8,16 @@ import {
   SwitchCamera,
   Loader2,
   ArrowDown,
-  ArrowUp
+  ArrowUp,
+  Camera,
+  AlertCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useApp } from '@/contexts/AppContext';
 import { cn } from '@/lib/utils';
+import { useMediaPermissions } from '@/hooks/useMediaPermissions';
+
+type CallState = 'requesting-permission' | 'permission-denied' | 'active';
 
 interface VideoCallScreenProps {
   callerName: string;
@@ -21,6 +26,8 @@ interface VideoCallScreenProps {
 
 const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) => {
   const { ping } = useApp();
+  const { permissions, requestVideoCallPermissions } = useMediaPermissions();
+  const [callState, setCallState] = useState<CallState>('requesting-permission');
   const [showUI, setShowUI] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOn, setIsVideoOn] = useState(true);
@@ -32,12 +39,27 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
 
+  // Request camera and microphone permission on mount
   useEffect(() => {
+    const requestPermission = async () => {
+      const granted = await requestVideoCallPermissions();
+      if (granted) {
+        setCallState('active');
+      } else {
+        setCallState('permission-denied');
+      }
+    };
+    requestPermission();
+  }, [requestVideoCallPermissions]);
+
+  useEffect(() => {
+    if (callState !== 'active') return;
+    
     const interval = setInterval(() => {
       setDuration(d => d + 1);
     }, 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [callState]);
 
   useEffect(() => {
     resetHideTimer();
@@ -134,6 +156,44 @@ const VideoCallScreen: React.FC<VideoCallScreenProps> = ({ callerName, onEnd }) 
       window.removeEventListener('touchend', handleMouseUp);
     };
   }, []);
+
+  // Permission denied screen
+  if (callState === 'permission-denied') {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center overflow-hidden">
+        <div className="flex flex-col items-center text-center p-8">
+          <div className="w-24 h-24 rounded-full bg-destructive/20 flex items-center justify-center mb-6">
+            <AlertCircle className="w-12 h-12 text-destructive" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Camera & Microphone Access Required</h2>
+          <p className="text-muted-foreground mb-6 max-w-xs">
+            To make video calls, please allow camera and microphone access in your browser settings.
+          </p>
+          <Button variant="destructive" onClick={onEnd} className="px-8">
+            Close
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Permission requesting screen
+  if (callState === 'requesting-permission') {
+    return (
+      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center overflow-hidden">
+        <div className="flex flex-col items-center text-center p-8 animate-fade-in">
+          <div className="w-24 h-24 rounded-full bg-primary/20 flex items-center justify-center mb-6 animate-pulse">
+            <Camera className="w-12 h-12 text-primary" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Camera & Microphone Access</h2>
+          <p className="text-muted-foreground mb-4">
+            Please allow camera and microphone access to start the video call
+          </p>
+          <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
